@@ -240,6 +240,7 @@ class Window(pyglet.window.Window):
         super(Window, self).__init__(*args, **kwargs)
         self.exclusive = False
         self.flying = False
+        self.gravity_sign = 1
         self.strafe = [0, 0]
         self.position = (0, 0, 0)
         self.rotation = (0, 0)
@@ -247,6 +248,7 @@ class Window(pyglet.window.Window):
         self.reticle = None
         self.dy = 0
         self.model = Model()
+        self.brick = 0
         self.label = pyglet.text.Label('', font_name='Arial', font_size=18, 
             x=10, y=self.height - 10, anchor_x='left', anchor_y='top', 
             color=(0, 0, 0, 255))
@@ -304,7 +306,7 @@ class Window(pyglet.window.Window):
         dx, dy, dz = dx * d, dy * d, dz * d
         # gravity
         if not self.flying:
-            self.dy -= dt * 0.044 # g force, should be = jump_speed * 0.5 / max_jump_height
+            self.dy -= dt * 0.044 * self.gravity_sign# g force, should be = jump_speed * 0.5 / max_jump_height
             self.dy = max(self.dy, -0.5) # terminal velocity
             dy += self.dy
         # collisions
@@ -349,9 +351,13 @@ class Window(pyglet.window.Window):
                     texture = self.model.world[block]
                     if texture != STONE:
                         self.model.remove_block(block)
+                        if texture == BRICK:
+                            self.brick += 1
             else:
                 if previous:
-                    self.model.add_block(previous, BRICK)
+                    if self.brick > 0:
+                        self.brick -= 1
+                        self.model.add_block(previous, BRICK)
         else:
             self.set_exclusive_mouse(True)
     def on_mouse_motion(self, x, y, dx, dy):
@@ -377,6 +383,8 @@ class Window(pyglet.window.Window):
             self.set_exclusive_mouse(False)
         elif symbol == key.TAB:
             self.flying = not self.flying
+        elif symbol == key.F:
+            self.gravity_sign = -1
     def on_key_release(self, symbol, modifiers):
         if symbol == key.W:
             self.strafe[0] += 1
@@ -386,6 +394,8 @@ class Window(pyglet.window.Window):
             self.strafe[1] += 1
         elif symbol == key.D:
             self.strafe[1] -= 1
+        elif symbol == key.F:
+            self.gravity_sign = 1
     def on_resize(self, width, height):
         # label
         self.label.y = height - 10
@@ -441,9 +451,10 @@ class Window(pyglet.window.Window):
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
     def draw_label(self):
         x, y, z = self.position
-        self.label.text = '%02d (%.2f, %.2f, %.2f) %d / %d' % (
-            pyglet.clock.get_fps(), x, y, z, 
-            len(self.model._shown), len(self.model.world))
+        self.label.text = 'bricks: %s' % self.brick
+        # self.label.text = '%02d (%.2f, %.2f, %.2f) %d / %d' % (
+            # pyglet.clock.get_fps(), x, y, z, 
+            # len(self.model._shown), len(self.model.world))
         self.label.draw()
     def draw_reticle(self):
         glColor3d(0, 0, 0)
